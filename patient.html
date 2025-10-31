@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Patient Dashboard</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h2>🩺 Patient Digital Passport</h2>
+
+    <div id="patientDetails">
+      <p><b>Name:</b> <span id="pName"></span></p>
+      <p><b>Age:</b> <span id="pAge"></span></p>
+      <p><b>Blood Group:</b> <span id="pBlood"></span></p>
+      <p><b>Disease:</b> <span id="pDisease"></span></p>
+    </div>
+
+    <h3>Upload Medical Report / Prescription</h3>
+    <input type="file" id="fileUpload" accept=".pdf">
+    <button id="uploadBtn">Upload PDF</button>
+    <p id="uploadStatus"></p>
+
+    <h3>📄 Uploaded Reports:</h3>
+    <ul id="fileList"></ul>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    // --- Firebase Configuration ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyBXkOoo0jwYkDwnLrnWPhViogFGpPgKidk",
+      authDomain: "digitalpassport-8c226.firebaseapp.com",
+      databaseURL: "https://digitalpassport-8c226-default-rtdb.firebaseio.com",
+      projectId: "digitalpassport-8c226",
+      storageBucket: "digitalpassport-8c226.appspot.com",
+      messagingSenderId: "249775240749",
+      appId: "1:249775240749:web:998d444aa8cbe33acaeaa4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // --- Extract Patient ID from URL ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const patientId = urlParams.get("id");
+
+    // --- Load Patient Details ---
+    async function loadPatientData() {
+      const snapshot = await get(ref(db, 'patients/' + patientId));
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        document.getElementById('pName').innerText = data.name;
+        document.getElementById('pAge').innerText = data.age;
+        document.getElementById('pBlood').innerText = data.blood;
+        document.getElementById('pDisease').innerText = data.disease;
+      } else {
+        alert("Patient not found!");
+      }
+    }
+
+    loadPatientData();
+
+    // --- Upload PDF as Base64 + SHA-256 Hash ---
+    document.getElementById('uploadBtn').addEventListener('click', async () => {
+      const file = document.getElementById('fileUpload').files[0];
+      if (!file) {
+        alert("Please select a file first!");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        const base64PDF = e.target.result;
+
+        // Generate SHA-256 hash
+        const wordArray = CryptoJS.enc.Latin1.parse(atob(base64PDF.split(',')[1]));
+        const hash = CryptoJS.SHA256(wordArray).toString(CryptoJS.enc.Hex);
+
+        const reportKey = file.name.replace(/\./g, '_');
+
+        // Save in Realtime Database
+        await set(ref(db, `patients/${patientId}/reports/${reportKey}`), {
+          fileName: file.name,
+          base64: base64PDF,
+          uploadDate: Date.now(),
+          fileHash: hash
+        });
+
+        document.getElementById('uploadStatus').innerText = "✅ Upload successful!";
+        loadReports();
+      };
+
+      reader.readAsDataURL(file);
+    });
+
+    // --- Load and Display Reports ---
+    async function loadReports() {
+      const snapshot = await get(ref(db, `patients/${patientId}/reports`));
+      const fileList = document.getElementById('fileList');
+      fileList.innerHTML = "";
+
+      if (snapshot.exists()) {
+        const reports = snapshot.val();
+        for (const key in reports) {
+          const report = reports[key];
+          const li = document.createElement('li');
+          li.innerHTML = `
+            <a href="${report.base64}" download="${report.fileName}">${report.fileName}</a>
+            <button class="verify-btn" data-base64="${report.base64}" data-hash="${report.fileHash}">Verify</button>
+            <span class="status" id="status-${key}"></span>
+          `;
+          fileList.appendChild(li);
+        }
+
+        // Add Verify button functionality
+        document.querySelectorAll('.verify-btn').forEach(button => {
+          button.addEventListener('click', (event) => {
+            const base64 = button.dataset.base64;
+            const storedHash = button.dataset.hash;
+            const wordArray = CryptoJS.enc.Latin1.parse(atob(base64.split(',')[1]));
+            const calculatedHash = CryptoJS.SHA256(wordArray).toString(CryptoJS.enc.Hex);
+            const statusEl = button.nextElementSibling;
+
+            if (calculatedHash === storedHash) {
+              statusEl.style.color = 'green';
+              statusEl.innerText = "✅ Verified";
+            } else {
+              statusEl.style.color = 'red';
+              statusEl.innerText = "❌ Tampered";
+            }
+          });
+        });
+      } else {
+        fileList.innerHTML = "<li>No reports uploaded yet.</li>";
+      }
+    }
+
+    loadReports();
+  </script>
+</body>
+</html>
