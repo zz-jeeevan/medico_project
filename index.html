@@ -51,7 +51,7 @@
       db.ref('patients/' + patientId).set(patientData)
         .then(() => {
           alert("Patient Registered Successfully!");
-          const url = `${"https://zz-jeeevan.github.io/medico_project"}/patient.html?id=${patientId}`;
+          const url = `${"https://zz-jeeevan.github.io"}/medico_project/patient.html?id=${patientId}`;
 const qr = new QRCode(document.getElementById("qrcode"), url);
 
         })
