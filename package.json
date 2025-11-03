@@ -1,0 +1,24 @@
+{
+  "name": "medico_project",
+  "version": "1.0.0",
+  "description": "Just a prototype",
+  "main": "index.js",
+  "scripts": {
+    "predeploy": "npm run build || echo 'No build step, continuing...'",
+    "deploy": "gh-pages -d ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zz-jeeevan/medico_project.git"
+  },
+  "keywords": [],
+  "author": "Jeevan",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/zz-jeeevan/medico_project/issues"
+  },
+  "homepage": "https://zz-jeeevan.github.io/medico_project/",
+  "devDependencies": {
+    "gh-pages": "^6.3.0"
+  }
+}
